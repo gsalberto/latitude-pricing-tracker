@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { LayoutDashboard, Server, GitCompare, History, Layers } from 'lucide-react'
@@ -20,13 +21,17 @@ export function Navigation() {
     <nav className="flex flex-col w-64 bg-[hsl(260,20%,6%)] border-r border-[hsl(260,15%,15%)] min-h-screen p-6">
       {/* Logo/Brand */}
       <div className="mb-10">
-        <div className="flex items-center gap-2 mb-1">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[hsl(241,87%,61%)] to-[hsl(244,57%,69%)] flex items-center justify-center">
-            <span className="text-white font-bold text-sm">L</span>
-          </div>
+        <div className="flex items-center gap-3 mb-1">
+          <Image
+            src="/favicon.svg"
+            alt="Latitude"
+            width={32}
+            height={32}
+            className="rounded-lg"
+          />
           <h1 className="text-lg font-semibold text-white">Latitude</h1>
         </div>
-        <p className="text-xs text-[hsl(260,10%,50%)] ml-10">Competitive Tracker</p>
+        <p className="text-xs text-[hsl(260,10%,50%)] ml-11">Competitive Tracker</p>
       </div>
 
       {/* Navigation Links */}

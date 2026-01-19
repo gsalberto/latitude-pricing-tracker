@@ -17,6 +17,9 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: "Latitude Pricing Tracker",
   description: "Track and compare Latitude.sh Gen4 bare metal server pricing against competitors",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
