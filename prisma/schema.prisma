@@ -1,0 +1,109 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Competitor {
+  VULTR
+  OVHCLOUD
+  HETZNER
+  TERASWITCH
+  CHERRYSERVERS
+  LIMESTONENETWORKS
+  SERVERSCOM
+  DATAPACKET
+  PHOENIXNAP
+  LEASEWEB
+  SCALEWAY
+  LIQUIDWEB
+  IBM
+  OCI
+}
+
+model City {
+  id                  String              @id @default(cuid())
+  code                String              @unique
+  name                String
+  country             String
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  competitorProducts  CompetitorProduct[]
+}
+
+model LatitudeProduct {
+  id                  String       @id @default(cuid())
+  name                String       @unique
+  cpu                 String
+  cpuCores            Int
+  ram                 Int          // GB
+  storageDescription  String
+  storageTotalTB      Float
+  networkGbps         Int
+  priceUsd            Float
+  generation          Int          @default(4)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  comparisons         Comparison[]
+}
+
+model CompetitorProduct {
+  id                  String       @id @default(cuid())
+  competitor          Competitor
+  name                String
+  cpu                 String
+  cpuCores            Int
+  ram                 Int          // GB
+  storageDescription  String
+  storageTotalTB      Float
+  networkGbps         Int
+  cityId              String
+  city                City         @relation(fields: [cityId], references: [id])
+  priceUsd            Float
+  sourceUrl           String
+
+  // Inventory tracking
+  inStock             Boolean      @default(true)
+  quantity            Int?         // Number of servers available (from API)
+  lastInventoryCheck  DateTime?
+  inventoryUrl        String?      // URL to check inventory/availability
+
+  lastVerified        DateTime     @default(now())
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  comparisons         Comparison[]
+
+  @@unique([competitor, name, cityId])
+}
+
+model Comparison {
+  id                      String            @id @default(cuid())
+  latitudeProductId       String
+  latitudeProduct         LatitudeProduct   @relation(fields: [latitudeProductId], references: [id], onDelete: Cascade)
+  competitorProductId     String
+  competitorProduct       CompetitorProduct @relation(fields: [competitorProductId], references: [id], onDelete: Cascade)
+  notes                   String?
+  priceDifferencePercent  Float             // positive = Latitude cheaper, negative = Latitude more expensive
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+
+  @@unique([latitudeProductId, competitorProductId])
+}
+
+model PriceHistory {
+  id                  String      @id @default(cuid())
+  competitorProductId String
+  competitor          Competitor
+  productName         String
+  cityName            String
+  oldPrice            Float
+  newPrice            Float
+  changePercent       Float
+  recordedAt          DateTime    @default(now())
+
+  @@index([competitorProductId])
+  @@index([recordedAt])
+}

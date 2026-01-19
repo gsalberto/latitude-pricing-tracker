@@ -2,26 +2,104 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+}
+
+
+
+@layer base {
+  :root {
+    /* Latitude.sh inspired dark theme as default */
+    --background: 260 20% 8%;
+    --foreground: 0 0% 95%;
+    --card: 260 18% 11%;
+    --card-foreground: 0 0% 95%;
+    --popover: 260 18% 11%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 241 87% 61%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 260 15% 18%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 260 15% 15%;
+    --muted-foreground: 260 10% 55%;
+    --accent: 244 57% 69%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 260 15% 18%;
+    --input: 260 15% 18%;
+    --ring: 241 87% 61%;
+    --chart-1: 241 87% 61%;
+    --chart-2: 168 76% 42%;
+    --chart-3: 244 57% 69%;
+    --chart-4: 45 100% 53%;
+    --chart-5: 332 100% 50%;
+    --radius: 0.5rem;
+
+    /* Latitude brand colors */
+    --latitude-purple: 262 32% 20%;
+    --latitude-uv: 241 87% 61%;
+    --latitude-melrose: 244 57% 69%;
+    --success: 168 76% 42%;
+    --warning: 45 100% 53%;
+  }
+}
+
+
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Latitude.sh inspired component styles */
+@layer components {
+  /* Glowing accent for active states */
+  .glow-primary {
+    box-shadow: 0 0 20px hsl(241 87% 61% / 0.3);
+  }
+
+  /* Card hover effects */
+  .card-hover {
+    @apply transition-all duration-300;
+  }
+  .card-hover:hover {
+    @apply border-[hsl(241,87%,61%)/0.3];
+    box-shadow: 0 4px 20px hsl(241 87% 61% / 0.1);
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    background: linear-gradient(135deg, hsl(241, 87%, 61%) 0%, hsl(244, 57%, 69%) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Subtle grid background pattern */
+  .grid-pattern {
+    background-image:
+      linear-gradient(hsl(260 15% 15% / 0.5) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(260 15% 15% / 0.5) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+
+  /* Status colors with better contrast */
+  .status-cheaper {
+    @apply text-emerald-400;
+  }
+  .status-competitive {
+    @apply text-amber-400;
+  }
+  .status-expensive {
+    @apply text-red-400;
   }
 }
