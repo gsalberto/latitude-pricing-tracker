@@ -32,6 +32,12 @@ export async function GET() {
       LIMESTONENETWORKS: { count: 0, avgDiff: 0, cheaper: 0, competitive: 0, expensive: 0 },
       SERVERSCOM: { count: 0, avgDiff: 0, cheaper: 0, competitive: 0, expensive: 0 },
       DATAPACKET: { count: 0, avgDiff: 0, cheaper: 0, competitive: 0, expensive: 0 },
+      PHOENIXNAP: { count: 0, avgDiff: 0, cheaper: 0, competitive: 0, expensive: 0 },
+      LEASEWEB: { count: 0, avgDiff: 0, cheaper: 0, competitive: 0, expensive: 0 },
+      SCALEWAY: { count: 0, avgDiff: 0, cheaper: 0, competitive: 0, expensive: 0 },
+      LIQUIDWEB: { count: 0, avgDiff: 0, cheaper: 0, competitive: 0, expensive: 0 },
+      IBM: { count: 0, avgDiff: 0, cheaper: 0, competitive: 0, expensive: 0 },
+      OCI: { count: 0, avgDiff: 0, cheaper: 0, competitive: 0, expensive: 0 },
     }
 
     comparisons.forEach((comparison) => {
