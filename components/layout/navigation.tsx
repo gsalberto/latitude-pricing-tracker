@@ -3,19 +3,22 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
+import { useSession, signOut } from 'next-auth/react'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, Server, GitCompare, History, Layers } from 'lucide-react'
+import { LayoutDashboard, Server, GitCompare, History, Layers, LogOut } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Latitude Products', href: '/latitude', icon: Server },
-  { name: 'Comparisons', href: '/comparisons', icon: GitCompare },
   { name: 'Spec Matching', href: '/matching', icon: Layers },
+  { name: 'Comparisons', href: '/comparisons', icon: GitCompare },
   { name: 'Price History', href: '/price-history', icon: History },
 ]
 
 export function Navigation() {
   const pathname = usePathname()
+  const { data: session } = useSession()
 
   return (
     <nav className="flex flex-col w-64 bg-[hsl(260,20%,6%)] border-r border-[hsl(260,15%,15%)] min-h-screen p-6">
@@ -60,11 +63,40 @@ export function Navigation() {
         })}
       </ul>
 
-      {/* Footer */}
+      {/* User & Sign Out */}
       <div className="mt-auto pt-6 border-t border-[hsl(260,15%,12%)]">
-        <p className="text-xs text-[hsl(260,10%,40%)]">
-          Gen4 Pricing Analysis
-        </p>
+        {session?.user && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              {session.user.image && (
+                <Image
+                  src={session.user.image}
+                  alt={session.user.name || ''}
+                  width={32}
+                  height={32}
+                  className="rounded-full"
+                />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate">
+                  {session.user.name}
+                </p>
+                <p className="text-xs text-[hsl(260,10%,50%)] truncate">
+                  {session.user.email}
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => signOut({ callbackUrl: '/login' })}
+              className="w-full justify-start text-[hsl(260,10%,60%)] hover:text-white hover:bg-[hsl(260,15%,12%)]"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign out
+            </Button>
+          </div>
+        )}
       </div>
     </nav>
   )
