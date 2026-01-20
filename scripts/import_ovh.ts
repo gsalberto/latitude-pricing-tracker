@@ -1,6 +1,17 @@
+/**
+ * @deprecated Use import_ovh_api.ts instead for live API data
+ *
+ * This script uses hardcoded data. Run the API version instead:
+ *   npx ts-node scripts/import_ovh_api.ts
+ */
+
 import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
+
+console.log('⚠️  This script is deprecated. Use import_ovh_api.ts instead.')
+console.log('   Run: npx ts-node scripts/import_ovh_api.ts')
+console.log('')
 
 // OVH locations that overlap with Latitude cities
 const OVH_CITIES = [
