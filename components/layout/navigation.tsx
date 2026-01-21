@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, Server, GitCompare, History, Layers, LogOut } from 'lucide-react'
+import { LayoutDashboard, Server, GitCompare, History, Layers, LogOut, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 const navigation = [
@@ -16,7 +16,11 @@ const navigation = [
   { name: 'Price History', href: '/price-history', icon: History },
 ]
 
-export function Navigation() {
+interface NavigationProps {
+  lastUpdated?: Date | null
+}
+
+export function Navigation({ lastUpdated }: NavigationProps) {
   const pathname = usePathname()
   const { data: session } = useSession()
 
@@ -62,6 +66,24 @@ export function Navigation() {
           )
         })}
       </ul>
+
+      {/* Last Updated */}
+      {lastUpdated && (
+        <div className="mt-6 px-3 py-3 rounded-lg bg-[hsl(260,15%,10%)]">
+          <div className="flex items-center gap-2 text-[hsl(260,10%,50%)]">
+            <Clock className="h-3.5 w-3.5" />
+            <span className="text-xs font-medium">Last Updated</span>
+          </div>
+          <p className="text-xs text-[hsl(260,10%,70%)] mt-1 ml-5">
+            {new Date(lastUpdated).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </p>
+        </div>
+      )}
 
       {/* User & Sign Out */}
       <div className="mt-auto pt-6 border-t border-[hsl(260,15%,12%)]">

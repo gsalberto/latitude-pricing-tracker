@@ -1,16 +1,22 @@
 import { PrismaClient } from '@prisma/client'
 import crypto from 'crypto'
+import 'dotenv/config'
 
 const prisma = new PrismaClient()
 
 // OVH API Configuration (CA region)
-const OVH_APP_KEY = 'e96d07e125b0e3e4'
-const OVH_APP_SECRET = '1c32b0e8d8a8b3063700e41a2e473348'
-const OVH_CONSUMER_KEY = 'bebce9ad3bad6c3966673617a2296dcd'
+const OVH_APP_KEY = process.env.OVH_APP_KEY || ''
+const OVH_APP_SECRET = process.env.OVH_APP_SECRET || ''
+const OVH_CONSUMER_KEY = process.env.OVH_CONSUMER_KEY || ''
 const OVH_API_BASE = 'https://ca.api.ovh.com/1.0'
 
-// CAD to USD conversion rate (approximate)
-const CAD_TO_USD = 0.74
+if (!OVH_APP_KEY || !OVH_APP_SECRET || !OVH_CONSUMER_KEY) {
+  throw new Error('OVH API credentials (OVH_APP_KEY, OVH_APP_SECRET, OVH_CONSUMER_KEY) are required')
+}
+
+// CAD to USD conversion rate (approximate - OVH USD prices are slightly higher than direct conversion)
+// Using 0.756 to match OVH's USD website pricing
+const CAD_TO_USD = 0.756
 
 // OVH Datacenter to City mapping
 const OVH_DATACENTERS: Record<string, { name: string; country: string }> = {
@@ -129,6 +135,71 @@ function parseInvoiceName(invoiceName: string): { series: string; cpu: string; c
   const cpuCores = parseCpuCores(cpu)
 
   return { series, cpu, cpuCores }
+}
+
+// AMD EPYC base clock speeds in GHz
+const EPYC_BASE_CLOCKS: Record<string, number> = {
+  // EPYC 9xxx (Genoa/Turin)
+  '9135': 2.6,
+  '9175F': 4.2,
+  '9255': 2.5,
+  '9274F': 4.05,
+  '9354': 3.25,
+  '9354P': 3.25,
+  '9355': 3.2,
+  '9374F': 3.85,
+  '9454': 2.75,
+  '9454P': 2.75,
+  '9455': 3.0,
+  '9474F': 3.6,
+  '9554': 3.1,
+  '9554P': 3.1,
+  '9555': 3.2,
+  '9634': 2.25,
+  '9654': 2.4,
+  '9654P': 2.4,
+  '9655': 2.6,
+  '9684X': 2.55,
+  '9754': 2.25,
+  '9754S': 2.25,
+  '9755': 2.7,
+  '9965': 2.25,
+  // EPYC 4xxx (Raphael/Bergamo)
+  '4244P': 3.8,
+  '4344P': 3.8,
+  '4345P': 3.8,
+  '4364P': 3.8,
+  '4464P': 3.7,
+  '4465P': 3.6,
+  '4545P': 3.8,
+  '4564P': 3.6,
+  '4584PX': 4.2,
+  '4585PX': 4.2,  // Similar to 4584PX
+  '4245P': 3.4,   // OVH-specific SKU
+  // Older EPYC 7xxx
+  '7313': 3.0,
+  '7413': 2.65,
+  '7402': 2.8,
+  '7451': 2.3,
+  '7532': 2.4,
+  '7542': 2.9,
+  '7642': 2.3,
+  '7702': 2.0,
+  '7742': 2.25,
+  '7763': 2.45,
+}
+
+function getCpuWithClock(cpu: string): string {
+  // Extract model number and add clock speed if available
+  const match = cpu.match(/(\d{4}[A-Z]*)/)
+  if (match) {
+    const model = match[1]
+    const clock = EPYC_BASE_CLOCKS[model]
+    if (clock) {
+      return `${cpu} @ ${clock}GHz`
+    }
+  }
+  return cpu
 }
 
 function parseCpuCores(cpu: string): number {
@@ -345,23 +416,34 @@ async function main() {
     const defaultStorage = storageFamily?.default || storageFamily?.addons?.[0] || ''
     const storage = parseStorageFromAddon(defaultStorage)
 
-    // Get base price (monthly rental)
-    const monthlyPricing = basePlan.pricings.find((p: OvhPlan['pricings'][0]) =>
-      p.intervalUnit === 'month' &&
-      p.capacities.includes('renew') &&
-      p.commitment === 0 &&
-      p.mode === 'default'
-    )
+    // Build a map of regional prices (planCode suffix -> price in USD)
+    // OVH has different prices for different regions: -sgp, -syd, -mum, etc.
+    const regionalPrices = new Map<string, number>()
+    for (const plan of plans) {
+      const monthlyPricing = plan.pricings.find((p: OvhPlan['pricings'][0]) =>
+        p.intervalUnit === 'month' &&
+        p.capacities.includes('renew') &&
+        p.commitment === 0 &&
+        p.mode === 'default'
+      )
+      if (monthlyPricing) {
+        const priceCad = monthlyPricing.price / 100000000
+        const priceUsd = Math.round(priceCad * CAD_TO_USD)
 
-    if (!monthlyPricing) {
+        // Extract region suffix from planCode (e.g., "24adv02-v1-sgp" -> "sgp")
+        const regionMatch = plan.planCode.match(/-([a-z]{3})$/)
+        const regionKey = regionMatch ? regionMatch[1] : 'default'
+        regionalPrices.set(regionKey, priceUsd)
+      }
+    }
+
+    const defaultPrice = regionalPrices.get('default') || 0
+    if (defaultPrice === 0 && regionalPrices.size === 0) {
       console.log(`  Skipping ${product} - no monthly pricing found`)
       continue
     }
 
-    const priceCad = monthlyPricing.price / 100000000
-    const priceUsd = Math.round(priceCad * CAD_TO_USD)
-
-    console.log(`  ${series}: ${cpu} (${cpuCores}c/${baseRam}GB) - $${priceUsd}/mo`)
+    console.log(`  ${series}: ${cpu} (${cpuCores}c/${baseRam}GB) - base $${defaultPrice}/mo, regions: ${Array.from(regionalPrices.entries()).map(([k, v]) => `${k}=$${v}`).join(', ')}`)
 
     // Fetch availability per datacenter
     const availability = await fetchAvailability(product)
@@ -378,6 +460,13 @@ async function main() {
       }
     }
 
+    // Map datacenter codes to regional pricing keys
+    const dcToRegion: Record<string, string> = {
+      'sgp': 'sgp', 'apac-sgp-a': 'sgp',
+      'syd': 'syd', 'apac-syd-a': 'syd',
+      'mum': 'mum', 'ynm': 'mum', 'in-west-mum-a': 'mum',
+    }
+
     // Create product for each datacenter
     for (const [dcCode, avail] of Array.from(dcAvailability.entries())) {
       const dcInfo = OVH_DATACENTERS[dcCode]
@@ -385,6 +474,10 @@ async function main() {
         console.log(`    Skipping unknown datacenter: ${dcCode}`)
         continue
       }
+
+      // Get regional price or fall back to default
+      const regionKey = dcToRegion[dcCode] || 'default'
+      const priceUsd = regionalPrices.get(regionKey) || regionalPrices.get('default') || defaultPrice
 
       // Get or create city
       const cityCode = `ovh-${dcCode}`
@@ -405,11 +498,18 @@ async function main() {
       // Create product - include product code to make name unique
       // e.g., "ADVANCE-2 (26adv02)" or "SCALE-A1 (26scaleamd01)"
       const productName = `${series.toUpperCase()} (${product})`
+
+      // Determine source URL based on series
+      const isAdvance = product.includes('adv')
+      const sourceUrl = isAdvance
+        ? 'https://www.ovhcloud.com/en/bare-metal/advance/'
+        : 'https://www.ovhcloud.com/en/bare-metal/scale/'
+
       await prisma.competitorProduct.create({
         data: {
           competitor: 'OVHCLOUD',
           name: productName,
-          cpu: cpu.includes('AMD') ? cpu : `AMD ${cpu}`,
+          cpu: getCpuWithClock(cpu.includes('AMD') ? cpu : `AMD ${cpu}`),
           cpuCores,
           ram: baseRam,
           storageDescription: storage.description,
@@ -417,7 +517,7 @@ async function main() {
           networkGbps: 25, // OVH Scale/Advance have 25Gbps
           priceUsd,
           cityId: city.id,
-          sourceUrl: `https://www.ovhcloud.com/en/bare-metal/scale/`,
+          sourceUrl,
           inStock,
           quantity,
           lastInventoryCheck: new Date(),

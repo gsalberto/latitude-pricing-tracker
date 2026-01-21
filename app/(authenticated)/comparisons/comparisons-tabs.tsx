@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button'
 import { ProductTooltip } from '@/components/product-tooltip'
 import { formatPrice, formatPercentage } from '@/lib/calculations'
-import { CheckCircle, XCircle, MapPin, Building2, Server, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { CheckCircle, XCircle, MapPin, Building2, Server, ArrowUpDown, ArrowUp, ArrowDown, X } from 'lucide-react'
+import Link from 'next/link'
 
 type ViewMode = 'by-sku' | 'by-competitor'
 type SortDirection = 'asc' | 'desc' | null
@@ -53,6 +54,7 @@ interface CompetitorProduct {
 interface Comparison {
   id: string
   priceDifferencePercent: number
+  latitudeRegionalPriceUsd: number | null
   notes: string | null
   latitudeProduct: LatitudeProduct
   competitorProduct: CompetitorProduct
@@ -61,6 +63,8 @@ interface Comparison {
 interface ComparisonTabsProps {
   comparisons: Comparison[]
   latitudeProducts: LatitudeProduct[]
+  initialCompetitor?: string
+  initialPosition?: string
 }
 
 const competitorColors: Record<string, string> = {
@@ -99,8 +103,25 @@ const getLocationFilterKey = (city: City) => {
   return `country:${city.country}`
 }
 
-export function ComparisonTabs({ comparisons, latitudeProducts }: ComparisonTabsProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>('by-sku')
+// Helper to filter by position
+const filterByPosition = (comps: Comparison[], position?: string) => {
+  if (!position) return comps
+  switch (position) {
+    case 'cheaper':
+      return comps.filter(c => c.priceDifferencePercent > 10)
+    case 'competitive':
+      return comps.filter(c => c.priceDifferencePercent >= -10 && c.priceDifferencePercent <= 10)
+    case 'expensive':
+      return comps.filter(c => c.priceDifferencePercent < -10)
+    default:
+      return comps
+  }
+}
+
+export function ComparisonTabs({ comparisons: rawComparisons, latitudeProducts, initialCompetitor, initialPosition }: ComparisonTabsProps) {
+  // Apply position filter to all comparisons first
+  const comparisons = useMemo(() => filterByPosition(rawComparisons, initialPosition), [rawComparisons, initialPosition])
+  const [viewMode, setViewMode] = useState<ViewMode>(initialCompetitor ? 'by-competitor' : 'by-sku')
   const [selectedLocations, setSelectedLocations] = useState<Record<string, string>>({})
   const [selectedCompetitors, setSelectedCompetitors] = useState<Record<string, string>>({})
   const [selectedSkus, setSelectedSkus] = useState<Record<string, string>>({})
@@ -257,6 +278,155 @@ export function ComparisonTabs({ comparisons, latitudeProducts }: ComparisonTabs
     return sortComparisons(filtered, competitor)
   }
 
+  const positionLabels: Record<string, { label: string; color: string }> = {
+    cheaper: { label: 'Latitude is Cheaper', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
+    competitive: { label: 'Competitive', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
+    expensive: { label: 'Latitude is More Expensive', color: 'bg-red-500/20 text-red-400 border-red-500/30' },
+  }
+
+  // Flat list sorting for position filter view
+  const [flatListSort, setFlatListSort] = useState<SortDirection>('desc')
+  const sortedFlatComparisons = useMemo(() => {
+    if (!flatListSort) return comparisons
+    return [...comparisons].sort((a, b) => {
+      if (flatListSort === 'desc') {
+        return b.priceDifferencePercent - a.priceDifferencePercent
+      }
+      return a.priceDifferencePercent - b.priceDifferencePercent
+    })
+  }, [comparisons, flatListSort])
+
+  // If position filter is active, show flat list view
+  if (initialPosition && positionLabels[initialPosition]) {
+    return (
+      <div className="space-y-4">
+        {/* Position Filter Indicator */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Filtering by:</span>
+          <Badge className={`${positionLabels[initialPosition].color} border`}>
+            {positionLabels[initialPosition].label}
+          </Badge>
+          <Link href="/comparisons">
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+              <X className="h-3 w-3 mr-1" />
+              Clear filter
+            </Button>
+          </Link>
+          <span className="text-sm text-muted-foreground">
+            ({comparisons.length} of {rawComparisons.length} comparisons)
+          </span>
+        </div>
+
+        {/* Flat List Table */}
+        {comparisons.length === 0 ? (
+          <p className="text-muted-foreground text-center py-8">
+            No comparisons match this filter.
+          </p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Latitude SKU</TableHead>
+                <TableHead>Latitude Price</TableHead>
+                <TableHead>Competitor</TableHead>
+                <TableHead>Competitor Product</TableHead>
+                <TableHead>Competitor Price</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Qty</TableHead>
+                <TableHead>
+                  <button
+                    className="flex items-center gap-1 hover:text-foreground transition-colors"
+                    onClick={() => setFlatListSort(prev => prev === 'desc' ? 'asc' : 'desc')}
+                  >
+                    Difference
+                    {flatListSort === 'desc' ? (
+                      <ArrowDown className="h-3 w-3" />
+                    ) : (
+                      <ArrowUp className="h-3 w-3" />
+                    )}
+                  </button>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedFlatComparisons.map((comparison) => {
+                const loc = getLocationDisplay(comparison.competitorProduct.city)
+                return (
+                  <TableRow
+                    key={comparison.id}
+                    className={!comparison.competitorProduct.inStock ? 'opacity-60' : ''}
+                  >
+                    <TableCell>
+                      <ProductTooltip
+                        name={comparison.latitudeProduct.name}
+                        cpu={comparison.latitudeProduct.cpu}
+                        cpuCores={comparison.latitudeProduct.cpuCores}
+                        ram={comparison.latitudeProduct.ram}
+                        storageDescription={comparison.latitudeProduct.storageDescription}
+                        networkGbps={comparison.latitudeProduct.networkGbps}
+                      />
+                    </TableCell>
+                    <TableCell>{formatPrice(comparison.latitudeRegionalPriceUsd ?? comparison.latitudeProduct.priceUsd)}/mo</TableCell>
+                    <TableCell>
+                      <Badge className={competitorColors[comparison.competitorProduct.competitor]}>
+                        {comparison.competitorProduct.competitor}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <ProductTooltip
+                        name={comparison.competitorProduct.name}
+                        cpu={comparison.competitorProduct.cpu}
+                        cpuCores={comparison.competitorProduct.cpuCores}
+                        ram={comparison.competitorProduct.ram}
+                        storageDescription={comparison.competitorProduct.storageDescription}
+                        networkGbps={comparison.competitorProduct.networkGbps}
+                        sourceUrl={comparison.competitorProduct.sourceUrl}
+                      />
+                    </TableCell>
+                    <TableCell>{formatPrice(comparison.competitorProduct.priceUsd)}/mo</TableCell>
+                    <TableCell>
+                      <span className="text-sm">
+                        {loc.primary}
+                        {loc.secondary && (
+                          <span className="text-muted-foreground ml-1">{loc.secondary}</span>
+                        )}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      {comparison.competitorProduct.quantity !== null ? (
+                        <span className={comparison.competitorProduct.quantity > 0 ? 'text-emerald-400 font-medium' : 'text-red-400'}>
+                          {comparison.competitorProduct.quantity}
+                        </span>
+                      ) : comparison.competitorProduct.inStock ? (
+                        <CheckCircle className="h-4 w-4 text-emerald-400" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-red-400" />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span
+                        className={
+                          comparison.priceDifferencePercent > 0
+                            ? 'text-emerald-400 font-medium'
+                            : comparison.priceDifferencePercent < 0
+                            ? 'text-red-400 font-medium'
+                            : ''
+                        }
+                      >
+                        {formatPercentage(comparison.priceDifferencePercent)}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </div>
+    )
+  }
+
+  // Regular view (no position filter)
   return (
     <div className="space-y-4">
       {/* View Mode Toggle */}
@@ -481,7 +651,7 @@ export function ComparisonTabs({ comparisons, latitudeProducts }: ComparisonTabs
         </Tabs>
       ) : (
         /* By Competitor View */
-        <Tabs defaultValue={allCompetitors[0]} className="w-full">
+        <Tabs defaultValue={initialCompetitor || allCompetitors[0]} className="w-full">
           <TabsList className="flex flex-wrap h-auto gap-1 mb-4">
             {allCompetitors.map((competitor) => {
               const competitorComparisons = comparisons.filter(c => c.competitorProduct.competitor === competitor)
@@ -625,7 +795,7 @@ export function ComparisonTabs({ comparisons, latitudeProducts }: ComparisonTabs
                               networkGbps={comparison.latitudeProduct.networkGbps}
                             />
                             <span className="text-xs text-muted-foreground ml-1">
-                              ({formatPrice(comparison.latitudeProduct.priceUsd)}/mo)
+                              ({formatPrice(comparison.latitudeRegionalPriceUsd ?? comparison.latitudeProduct.priceUsd)}/mo)
                             </span>
                           </TableCell>
                           <TableCell>

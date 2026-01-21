@@ -2,6 +2,29 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
+// Map competitor city countries to Latitude region codes
+const COUNTRY_TO_REGION: Record<string, string> = {
+  'USA': 'US',
+  'United States': 'US',
+  'Brazil': 'BR',
+  'Australia': 'AU',
+  'Chile': 'CL',
+  'Japan': 'JP',
+  'Mexico': 'MX',
+  'UK': 'UK',
+  'United Kingdom': 'UK',
+  'Argentina': 'AR',
+  'Colombia': 'CO',
+  'Germany': 'DE',
+  'Singapore': 'SG',
+  'Netherlands': 'NL',
+  'France': 'DE', // Use Germany/EU pricing
+  'Poland': 'DE', // Use Germany/EU pricing
+  'Canada': 'US', // Use US pricing for Canada
+  'India': 'SG', // Use Singapore pricing for India
+  'South Korea': 'JP', // Use Japan pricing for Korea
+}
+
 // Cities where Latitude.sh has data centers
 const LATITUDE_CITIES = [
   // USA
@@ -73,8 +96,31 @@ const latitudeMatchCriteria: Record<string, MatchCriteria> = {
   'rs4.metal.xlarge': { minCores: 52, maxCores: 80, minRam: 1152, maxRam: 1920 },
 }
 
+// Get regional price for a Latitude product based on competitor's country
+async function getLatitudeRegionalPrice(
+  latProductId: string,
+  defaultPrice: number,
+  competitorCountry: string
+): Promise<number> {
+  const regionCode = COUNTRY_TO_REGION[competitorCountry]
+  if (!regionCode) {
+    return defaultPrice
+  }
+
+  const regionalPrice = await prisma.latitudeRegionalPrice.findUnique({
+    where: {
+      latitudeProductId_region: {
+        latitudeProductId: latProductId,
+        region: regionCode,
+      }
+    }
+  })
+
+  return regionalPrice?.priceUsd || defaultPrice
+}
+
 async function main() {
-  console.log('Creating comparisons for ALL cities...\n')
+  console.log('Creating comparisons for ALL cities (with regional pricing)...\n')
 
   // Get all Latitude products
   const latitudeProducts = await prisma.latitudeProduct.findMany()
@@ -86,8 +132,11 @@ async function main() {
   })
   console.log(`Found ${competitorProducts.length} competitor products\n`)
 
+  // Delete existing comparisons to recalculate with regional pricing
+  const deleted = await prisma.comparison.deleteMany({})
+  console.log(`Deleted ${deleted.count} existing comparisons to recalculate with regional pricing\n`)
+
   let created = 0
-  let skipped = 0
 
   for (const latProduct of latitudeProducts) {
     const criteria = latitudeMatchCriteria[latProduct.name]
@@ -110,38 +159,32 @@ async function main() {
     console.log(`${latProduct.name} (${latProduct.cpuCores} cores, ${latProduct.ram}GB): ${matches.length} potential matches`)
 
     // Create comparisons for ALL matching products in ALL cities
-    // Only limit: one of each competitor product per Latitude product (no duplicates)
     for (const compProduct of matches) {
-      // Check if comparison already exists
-      const existing = await prisma.comparison.findFirst({
-        where: {
-          latitudeProductId: latProduct.id,
-          competitorProductId: compProduct.id,
-        }
-      })
+      // Get regional price for this competitor's location
+      const latitudePrice = await getLatitudeRegionalPrice(
+        latProduct.id,
+        latProduct.priceUsd,
+        compProduct.city.country
+      )
 
-      if (existing) {
-        skipped++
-        continue
-      }
-
-      // Calculate price difference
-      const priceDiff = ((compProduct.priceUsd - latProduct.priceUsd) / latProduct.priceUsd) * 100
+      // Calculate price difference using regional price
+      const priceDiff = ((compProduct.priceUsd - latitudePrice) / latitudePrice) * 100
 
       await prisma.comparison.create({
         data: {
           latitudeProductId: latProduct.id,
           competitorProductId: compProduct.id,
           priceDifferencePercent: priceDiff,
+          latitudeRegionalPriceUsd: latitudePrice,
           notes: `Auto-matched: ${compProduct.cpuCores} cores, ${compProduct.ram}GB RAM vs ${latProduct.cpuCores} cores, ${latProduct.ram}GB RAM`,
         }
       })
       created++
-      console.log(`  + ${compProduct.competitor} ${compProduct.name} in ${compProduct.city.name}, ${compProduct.city.country}`)
+      console.log(`  + ${compProduct.competitor} ${compProduct.name} in ${compProduct.city.name}, ${compProduct.city.country} (Lat: $${latitudePrice} vs Comp: $${compProduct.priceUsd})`)
     }
   }
 
-  console.log(`\nDone! Created ${created} comparisons, skipped ${skipped} existing.`)
+  console.log(`\nDone! Created ${created} comparisons with regional pricing.`)
 
   // Show summary
   const comparisons = await prisma.comparison.findMany({

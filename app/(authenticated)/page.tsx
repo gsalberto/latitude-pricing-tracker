@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { formatPercentage, getPricePositionColor } from '@/lib/calculations'
 import { Competitor } from '@prisma/client'
+import Link from 'next/link'
 
 async function getStats() {
   const comparisons = await prisma.comparison.findMany({
@@ -99,32 +100,34 @@ export default async function Dashboard() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               {activeCompetitors.map(([competitor, data]) => (
-                <Card key={competitor} className="border-border/30 bg-secondary/30 hover:bg-secondary/50 transition-colors">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg">
-                      <Badge className={competitorColors[competitor]}>{competitor}</Badge>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Comparisons:</span>
-                        <span className="font-medium">{data.count}</span>
+                <Link key={competitor} href={`/comparisons?competitor=${competitor}`}>
+                  <Card className="border-border/30 bg-secondary/30 hover:bg-secondary/50 transition-colors cursor-pointer h-full">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg">
+                        <Badge className={competitorColors[competitor]}>{competitor}</Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Comparisons:</span>
+                          <span className="font-medium">{data.count}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Avg. Diff:</span>
+                          <Badge className={getPricePositionColor(data.avgDiff)}>
+                            {formatPercentage(data.avgDiff)}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between text-xs pt-2 border-t border-border/30">
+                          <span className="text-emerald-400">{data.cheaper} cheaper</span>
+                          <span className="text-amber-400">{data.competitive} tie</span>
+                          <span className="text-red-400">{data.expensive} more</span>
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Avg. Diff:</span>
-                        <Badge className={getPricePositionColor(data.avgDiff)}>
-                          {formatPercentage(data.avgDiff)}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between text-xs pt-2 border-t border-border/30">
-                        <span className="text-emerald-400">{data.cheaper} cheaper</span>
-                        <span className="text-amber-400">{data.competitive} tie</span>
-                        <span className="text-red-400">{data.expensive} more</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </Link>
               ))}
             </div>
           )}

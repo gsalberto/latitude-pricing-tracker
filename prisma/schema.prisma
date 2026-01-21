@@ -7,6 +7,101 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model City {
+  id                 String              @id @default(cuid())
+  code               String              @unique
+  name               String
+  country            String
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  competitorProducts CompetitorProduct[]
+}
+
+model LatitudeProduct {
+  id                 String                  @id @default(cuid())
+  name               String                  @unique
+  cpu                String
+  cpuCores           Int
+  ram                Int
+  storageDescription String
+  storageTotalTB     Float
+  networkGbps        Int
+  priceUsd           Float
+  generation         Int                     @default(4)
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  comparisons        Comparison[]
+  regionalPrices     LatitudeRegionalPrice[]
+}
+
+model LatitudeRegionalPrice {
+  id                String          @id @default(cuid())
+  latitudeProductId String
+  region            String
+  priceUsd          Float
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  latitudeProduct   LatitudeProduct @relation(fields: [latitudeProductId], references: [id], onDelete: Cascade)
+
+  @@unique([latitudeProductId, region])
+}
+
+model CompetitorProduct {
+  id                 String       @id @default(cuid())
+  competitor         Competitor
+  name               String
+  cpu                String
+  cpuCores           Int
+  ram                Int
+  storageDescription String
+  storageTotalTB     Float
+  networkGbps        Int
+  cityId             String
+  priceUsd           Float
+  sourceUrl          String
+  inStock            Boolean      @default(true)
+  lastInventoryCheck DateTime?
+  inventoryUrl       String?
+  lastVerified       DateTime     @default(now())
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  quantity           Int?
+  comparisons        Comparison[]
+  city               City         @relation(fields: [cityId], references: [id])
+
+  @@unique([competitor, name, cityId])
+}
+
+model Comparison {
+  id                       String            @id @default(cuid())
+  latitudeProductId        String
+  competitorProductId      String
+  notes                    String?
+  priceDifferencePercent   Float
+  latitudeRegionalPriceUsd Float?            // Regional price used for this comparison
+  createdAt                DateTime          @default(now())
+  updatedAt                DateTime          @updatedAt
+  competitorProduct        CompetitorProduct @relation(fields: [competitorProductId], references: [id], onDelete: Cascade)
+  latitudeProduct          LatitudeProduct   @relation(fields: [latitudeProductId], references: [id], onDelete: Cascade)
+
+  @@unique([latitudeProductId, competitorProductId])
+}
+
+model PriceHistory {
+  id                  String     @id @default(cuid())
+  competitorProductId String
+  competitor          Competitor
+  productName         String
+  cityName            String
+  oldPrice            Float
+  newPrice            Float
+  changePercent       Float
+  recordedAt          DateTime   @default(now())
+
+  @@index([competitorProductId])
+  @@index([recordedAt])
+}
+
 enum Competitor {
   VULTR
   OVHCLOUD
@@ -22,88 +117,4 @@ enum Competitor {
   LIQUIDWEB
   IBM
   OCI
-}
-
-model City {
-  id                  String              @id @default(cuid())
-  code                String              @unique
-  name                String
-  country             String
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
-  competitorProducts  CompetitorProduct[]
-}
-
-model LatitudeProduct {
-  id                  String       @id @default(cuid())
-  name                String       @unique
-  cpu                 String
-  cpuCores            Int
-  ram                 Int          // GB
-  storageDescription  String
-  storageTotalTB      Float
-  networkGbps         Int
-  priceUsd            Float
-  generation          Int          @default(4)
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
-  comparisons         Comparison[]
-}
-
-model CompetitorProduct {
-  id                  String       @id @default(cuid())
-  competitor          Competitor
-  name                String
-  cpu                 String
-  cpuCores            Int
-  ram                 Int          // GB
-  storageDescription  String
-  storageTotalTB      Float
-  networkGbps         Int
-  cityId              String
-  city                City         @relation(fields: [cityId], references: [id])
-  priceUsd            Float
-  sourceUrl           String
-
-  // Inventory tracking
-  inStock             Boolean      @default(true)
-  quantity            Int?         // Number of servers available (from API)
-  lastInventoryCheck  DateTime?
-  inventoryUrl        String?      // URL to check inventory/availability
-
-  lastVerified        DateTime     @default(now())
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
-  comparisons         Comparison[]
-
-  @@unique([competitor, name, cityId])
-}
-
-model Comparison {
-  id                      String            @id @default(cuid())
-  latitudeProductId       String
-  latitudeProduct         LatitudeProduct   @relation(fields: [latitudeProductId], references: [id], onDelete: Cascade)
-  competitorProductId     String
-  competitorProduct       CompetitorProduct @relation(fields: [competitorProductId], references: [id], onDelete: Cascade)
-  notes                   String?
-  priceDifferencePercent  Float             // positive = Latitude cheaper, negative = Latitude more expensive
-  createdAt               DateTime          @default(now())
-  updatedAt               DateTime          @updatedAt
-
-  @@unique([latitudeProductId, competitorProductId])
-}
-
-model PriceHistory {
-  id                  String      @id @default(cuid())
-  competitorProductId String
-  competitor          Competitor
-  productName         String
-  cityName            String
-  oldPrice            Float
-  newPrice            Float
-  changePercent       Float
-  recordedAt          DateTime    @default(now())
-
-  @@index([competitorProductId])
-  @@index([recordedAt])
 }

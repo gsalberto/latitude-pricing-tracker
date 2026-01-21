@@ -1,10 +1,15 @@
 import { PrismaClient } from '@prisma/client'
+import 'dotenv/config'
 
 const prisma = new PrismaClient()
 
-const TERASWITCH_API_KEY = '276b9cec61704fc89524218a1deb161b'
-const TERASWITCH_API_SECRET = '2BG6VuwgWMy7FySt'
+const TERASWITCH_API_KEY = process.env.TERASWITCH_API_KEY || ''
+const TERASWITCH_API_SECRET = process.env.TERASWITCH_API_SECRET || ''
 const TERASWITCH_API_URL = 'https://api.tsw.io'
+
+if (!TERASWITCH_API_KEY || !TERASWITCH_API_SECRET) {
+  throw new Error('TERASWITCH_API_KEY and TERASWITCH_API_SECRET environment variables are required')
+}
 
 // Teraswitch cities with their region codes (consolidated by city)
 const TERASWITCH_CITIES = [
