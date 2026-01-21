@@ -19,7 +19,7 @@ export default function LoginPage() {
           </div>
           <CardTitle className="text-2xl">Latitude Pricing Tracker</CardTitle>
           <CardDescription>
-            Sign in with your @latitude.sh Google account
+            Sign in with your Google account
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -52,7 +52,7 @@ export default function LoginPage() {
             </Button>
           </form>
           <p className="text-xs text-muted-foreground text-center mt-4">
-            Only @latitude.sh accounts are allowed
+            Only @latitude.sh and @megaport.com accounts are allowed
           </p>
         </CardContent>
       </Card>
