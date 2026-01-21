@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, Server, GitCompare, History, Layers, LogOut, Clock } from 'lucide-react'
+import { LayoutDashboard, Server, GitCompare, History, Layers, LogOut, Clock, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 const navigation = [
@@ -14,6 +14,7 @@ const navigation = [
   { name: 'Spec Matching', href: '/matching', icon: Layers },
   { name: 'Comparisons', href: '/comparisons', icon: GitCompare },
   { name: 'Price History', href: '/price-history', icon: History },
+  { name: 'Changelog', href: '/changelog', icon: FileText },
 ]
 
 interface NavigationProps {
@@ -84,6 +85,18 @@ export function Navigation({ lastUpdated }: NavigationProps) {
           </p>
         </div>
       )}
+
+      {/* Version Info */}
+      <div className="mt-4 px-3">
+        <p className="text-[10px] text-[hsl(260,10%,40%)]">
+          v{process.env.NEXT_PUBLIC_APP_VERSION}
+          <span className="mx-1">•</span>
+          <span className="font-mono">{process.env.NEXT_PUBLIC_GIT_COMMIT}</span>
+          {process.env.NODE_ENV === 'development' && (
+            <span className="ml-1 px-1 py-0.5 bg-amber-500/20 text-amber-400 rounded text-[9px]">DEV</span>
+          )}
+        </p>
+      </div>
 
       {/* User & Sign Out */}
       <div className="mt-auto pt-6 border-t border-[hsl(260,15%,12%)]">
