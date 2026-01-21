@@ -10,8 +10,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   callbacks: {
     authorized: async ({ auth }) => {
-      // Only allow users with @latitude.sh email
-      if (auth?.user?.email?.endsWith("@latitude.sh")) {
+      const email = auth?.user?.email
+      const allowedDomains = ["@latitude.sh", "@megaport.com"]
+
+      if (email && allowedDomains.some(domain => email.endsWith(domain))) {
         return true
       }
       return false
