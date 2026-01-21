@@ -35,7 +35,8 @@ npx ts-node scripts/import_teraswitch_api.ts  # Import Teraswitch via API
 
 ### Tech Stack
 - **Framework**: Next.js 14 (App Router, server components)
-- **Database**: PostgreSQL with Prisma ORM
+- **Database**: PostgreSQL with Prisma ORM (Neon in production, local PostgreSQL for dev)
+- **Hosting**: Vercel (auto-deploys from main branch)
 - **UI**: Tailwind CSS + shadcn/ui (Radix primitives)
 - **Email**: Resend API for price alerts
 
@@ -81,11 +82,30 @@ Key relationships:
 - `email.ts` - Resend API integration for price alerts
 - `prisma.ts` - Singleton Prisma client
 
+## Deployment
+
+### Production (Vercel + Neon)
+- Hosted on Vercel, auto-deploys from `main` branch
+- Production database on Neon (PostgreSQL)
+- Deploy manually: `vercel --prod`
+
+### Database Migrations
+When schema changes are made, push to production database:
+```bash
+# Production DATABASE_URL is stored in .env as DATABASE_URL_PROD
+DATABASE_URL=$DATABASE_URL_PROD npx prisma db push
+```
+
 ## Environment Variables
 
 Required in `.env`:
-- `DATABASE_URL` - PostgreSQL connection string
+- `DATABASE_URL` - PostgreSQL connection string (local dev uses localhost, prod uses Neon)
 - `RESEND_API_KEY` - (Optional) For email alerts on price changes >10%
+
+### API Keys (in `.env`)
+- `LATITUDE_API_KEY` - Latitude.sh API for regional pricing
+- `OVH_APP_KEY`, `OVH_APP_SECRET`, `OVH_CONSUMER_KEY` - OVH API credentials
+- `TERASWITCH_API_KEY`, `TERASWITCH_API_SECRET` - Teraswitch API credentials
 
 ## Important Notes
 
