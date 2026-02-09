@@ -540,6 +540,12 @@ async function main() {
     // Update comparisons
     const comparisons = await updateComparisons()
 
+    // Touch all competitor products so dashboard "Last Updated" reflects this run
+    const touched = await prisma.competitorProduct.updateMany({
+      data: { lastVerified: new Date() }
+    })
+    console.log(`\nTouched ${touched.count} competitor products (lastVerified)`)
+
     // Summary
     const endTime = new Date()
     const duration = (endTime.getTime() - startTime.getTime()) / 1000
