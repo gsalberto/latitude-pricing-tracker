@@ -295,6 +295,18 @@ function parseStorageFromAddon(storageAddon: string): { description: string; tot
   return { description: 'Not specified', totalTB: 0 }
 }
 
+function getAddonMonthlyPriceCAD(catalogAddons: any[], addonCode: string): number {
+  const addon = catalogAddons.find((a: any) => a.planCode === addonCode)
+  if (!addon) return 0
+  const monthly = addon.pricings?.find((p: any) =>
+    p.intervalUnit === 'month' &&
+    p.capacities?.includes('renew') &&
+    p.commitment === 0 &&
+    p.mode === 'default'
+  )
+  return monthly ? monthly.price / 100000000 : 0
+}
+
 function isEpycGenoaOrRaphael(cpu: string): boolean {
   const cpuLower = cpu.toLowerCase()
 
@@ -335,10 +347,10 @@ function availabilityToStock(availability: string): { inStock: boolean; quantity
   return { inStock, quantity }
 }
 
-async function fetchCatalog(): Promise<OvhPlan[]> {
+async function fetchCatalog(): Promise<{ plans: OvhPlan[]; addons: any[] }> {
   console.log('Fetching OVH baremetalServers catalog...')
   const catalog = await ovhRequest('GET', '/order/catalog/public/baremetalServers?ovhSubsidiary=CA')
-  return catalog.plans || []
+  return { plans: catalog.plans || [], addons: catalog.addons || [] }
 }
 
 async function fetchAvailability(server: string): Promise<OvhAvailability[]> {
@@ -360,9 +372,9 @@ async function main() {
   })
   console.log(`Deleted ${deleted.count} existing OVHcloud products\n`)
 
-  // Fetch catalog
-  const allPlans = await fetchCatalog()
-  console.log(`Found ${allPlans.length} total plans in catalog\n`)
+  // Fetch catalog (plans + addons for memory pricing)
+  const { plans: allPlans, addons: catalogAddons } = await fetchCatalog()
+  console.log(`Found ${allPlans.length} total plans and ${catalogAddons.length} addons in catalog\n`)
 
   // Filter for relevant server families
   const relevantPlans = allPlans.filter(plan =>
@@ -405,11 +417,18 @@ async function main() {
       continue
     }
 
-    // Get memory options
+    // Get memory addon family and all available RAM options
     const memoryFamily = basePlan.addonFamilies.find((f: { name: string }) => f.name === 'memory')
-    const memoryOptions = memoryFamily?.addons || []
-    const defaultMemory = memoryFamily?.default || memoryOptions[0]
-    const baseRam = defaultMemory ? parseMemoryFromAddon(defaultMemory) : 128
+    const memoryAddonCodes = memoryFamily?.addons || []
+    const defaultMemoryAddon = memoryFamily?.default || memoryAddonCodes[0]
+
+    if (memoryAddonCodes.length === 0) {
+      console.log(`  Skipping ${product} - no memory addons found`)
+      continue
+    }
+
+    // Get the default memory addon's price from catalog (used to compute price deltas)
+    const defaultAddonPriceCAD = defaultMemoryAddon ? getAddonMonthlyPriceCAD(catalogAddons, defaultMemoryAddon) : 0
 
     // Get storage options
     const storageFamily = basePlan.addonFamilies.find((f: { name: string }) => f.name === 'storage')
@@ -443,7 +462,8 @@ async function main() {
       continue
     }
 
-    console.log(`  ${series}: ${cpu} (${cpuCores}c/${baseRam}GB) - base $${defaultPrice}/mo, regions: ${Array.from(regionalPrices.entries()).map(([k, v]) => `${k}=$${v}`).join(', ')}`)
+    const defaultRam = defaultMemoryAddon ? parseMemoryFromAddon(defaultMemoryAddon) : 128
+    console.log(`  ${series}: ${cpu} (${cpuCores}c/${defaultRam}GB default) - base $${defaultPrice}/mo, RAM options: ${memoryAddonCodes.length}, regions: ${Array.from(regionalPrices.entries()).map(([k, v]) => `${k}=$${v}`).join(', ')}`)
 
     // Fetch availability per datacenter
     const availability = await fetchAvailability(product)
@@ -467,75 +487,96 @@ async function main() {
       'mum': 'mum', 'ynm': 'mum', 'in-west-mum-a': 'mum',
     }
 
-    // Create product for each datacenter
-    for (const [dcCode, avail] of Array.from(dcAvailability.entries())) {
-      const dcInfo = OVH_DATACENTERS[dcCode]
-      if (!dcInfo) {
-        console.log(`    Skipping unknown datacenter: ${dcCode}`)
+    // Determine source URL based on series
+    const isAdvance = product.includes('adv')
+    const sourceUrl = isAdvance
+      ? 'https://www.ovhcloud.com/en/bare-metal/advance/'
+      : 'https://www.ovhcloud.com/en/bare-metal/scale/'
+
+    // The base product name (without RAM) used for baseProductName reference
+    const baseProductName = `${series.toUpperCase()} (${product})`
+
+    // Loop over ALL memory addon options to create a variant for each RAM size
+    for (const addonCode of memoryAddonCodes) {
+      const ram = parseMemoryFromAddon(addonCode)
+      if (ram === 0) {
+        console.log(`    Skipping addon ${addonCode} - could not parse RAM size`)
         continue
       }
 
-      // Get regional price or fall back to default
-      const regionKey = dcToRegion[dcCode] || 'default'
-      const priceUsd = regionalPrices.get(regionKey) || regionalPrices.get('default') || defaultPrice
+      const isBase = addonCode === defaultMemoryAddon
+      const addonPriceCAD = getAddonMonthlyPriceCAD(catalogAddons, addonCode)
+      const ramPriceDeltaUsd = Math.round((addonPriceCAD - defaultAddonPriceCAD) * CAD_TO_USD)
 
-      // Get or create city
-      const cityCode = `ovh-${dcCode}`
-      let city = await prisma.city.findUnique({ where: { code: cityCode } })
-      if (!city) {
-        city = await prisma.city.create({
+      console.log(`    RAM variant: ${ram}GB (${isBase ? 'default' : `+$${ramPriceDeltaUsd}`}) [${addonCode}]`)
+
+      // Create product for each datacenter
+      for (const [dcCode, avail] of Array.from(dcAvailability.entries())) {
+        const dcInfo = OVH_DATACENTERS[dcCode]
+        if (!dcInfo) {
+          console.log(`      Skipping unknown datacenter: ${dcCode}`)
+          continue
+        }
+
+        // Get regional price or fall back to default
+        const regionKey = dcToRegion[dcCode] || 'default'
+        const baseRegionalPrice = regionalPrices.get(regionKey) || regionalPrices.get('default') || defaultPrice
+        const priceUsd = baseRegionalPrice + ramPriceDeltaUsd
+
+        // Get or create city
+        const cityCode = `ovh-${dcCode}`
+        let city = await prisma.city.findUnique({ where: { code: cityCode } })
+        if (!city) {
+          city = await prisma.city.create({
+            data: {
+              code: cityCode,
+              name: dcInfo.name,
+              country: dcInfo.country,
+            }
+          })
+          console.log(`      Created city: ${dcInfo.name}, ${dcInfo.country}`)
+        }
+
+        const { inStock, quantity } = availabilityToStock(avail)
+
+        // Product name includes RAM to ensure uniqueness per city
+        // e.g., "SCALE-A1 (26scaleamd01) 128GB" or "SCALE-A1 (26scaleamd01) 256GB"
+        const productName = `${baseProductName} ${ram}GB`
+
+        await prisma.competitorProduct.create({
           data: {
-            code: cityCode,
-            name: dcInfo.name,
-            country: dcInfo.country,
+            competitor: 'OVHCLOUD',
+            name: productName,
+            cpu: getCpuWithClock(cpu.includes('AMD') ? cpu : `AMD ${cpu}`),
+            cpuCores,
+            ram,
+            storageDescription: storage.description,
+            storageTotalTB: storage.totalTB,
+            networkGbps: 25, // OVH Scale/Advance have 25Gbps
+            priceUsd,
+            cityId: city.id,
+            sourceUrl,
+            inStock,
+            quantity,
+            isConfigured: !isBase,
+            baseProductName: isBase ? null : baseProductName,
+            lastInventoryCheck: new Date(),
+            lastVerified: new Date(),
           }
         })
-        console.log(`    Created city: ${dcInfo.name}, ${dcInfo.country}`)
-      }
 
-      const { inStock, quantity } = availabilityToStock(avail)
-
-      // Create product - include product code to make name unique
-      // e.g., "ADVANCE-2 (26adv02)" or "SCALE-A1 (26scaleamd01)"
-      const productName = `${series.toUpperCase()} (${product})`
-
-      // Determine source URL based on series
-      const isAdvance = product.includes('adv')
-      const sourceUrl = isAdvance
-        ? 'https://www.ovhcloud.com/en/bare-metal/advance/'
-        : 'https://www.ovhcloud.com/en/bare-metal/scale/'
-
-      await prisma.competitorProduct.create({
-        data: {
-          competitor: 'OVHCLOUD',
+        createdProducts.push({
+          city: dcInfo.name,
           name: productName,
-          cpu: getCpuWithClock(cpu.includes('AMD') ? cpu : `AMD ${cpu}`),
-          cpuCores,
-          ram: baseRam,
-          storageDescription: storage.description,
-          storageTotalTB: storage.totalTB,
-          networkGbps: 25, // OVH Scale/Advance have 25Gbps
-          priceUsd,
-          cityId: city.id,
-          sourceUrl,
+          cpu,
+          cores: cpuCores,
+          ram,
+          price: priceUsd,
           inStock,
-          quantity,
-          lastInventoryCheck: new Date(),
-          lastVerified: new Date(),
-        }
-      })
-
-      createdProducts.push({
-        city: dcInfo.name,
-        name: productName,
-        cpu,
-        cores: cpuCores,
-        ram: baseRam,
-        price: priceUsd,
-        inStock,
-        availability: avail,
-      })
-      totalCreated++
+          availability: avail,
+        })
+        totalCreated++
+      }
     }
 
     // Small delay to avoid rate limiting
