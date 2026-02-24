@@ -23,6 +23,7 @@ const HETZNER_PRODUCTS = [
     storageTotalTB: 1.0,
     networkGbps: 1,
     priceUsd: 65, // €60 converted
+    isConfigured: false,
   },
   // AX52 series - 16 cores (matches m4.metal.medium: 12-20c, 96-160GB)
   {
@@ -34,6 +35,7 @@ const HETZNER_PRODUCTS = [
     storageTotalTB: 2.0,
     networkGbps: 1,
     priceUsd: 108, // €100 converted
+    isConfigured: false,
   },
   // AX102 series - 24 cores (matches m4.metal.large: 20-30c, 288-480GB)
   {
@@ -45,6 +47,7 @@ const HETZNER_PRODUCTS = [
     storageTotalTB: 3.84,
     networkGbps: 1,
     priceUsd: 162, // €150 converted
+    isConfigured: false,
   },
   // AX162 series - 48 cores (matches m4.metal.xlarge: 40-60c, 576-960GB with RAM upgrade)
   {
@@ -56,6 +59,7 @@ const HETZNER_PRODUCTS = [
     storageTotalTB: 3.84,
     networkGbps: 1,
     priceUsd: 215, // €199 converted
+    isConfigured: false,
   },
   {
     name: 'AX162-S-256GB',
@@ -66,6 +70,8 @@ const HETZNER_PRODUCTS = [
     storageTotalTB: 3.84,
     networkGbps: 1,
     priceUsd: 275, // Estimated with RAM upgrade
+    isConfigured: true,
+    baseProductName: 'AX162-S',
   },
   {
     name: 'AX162-S-512GB',
@@ -76,6 +82,8 @@ const HETZNER_PRODUCTS = [
     storageTotalTB: 3.84,
     networkGbps: 1,
     priceUsd: 395, // Estimated with RAM upgrade
+    isConfigured: true,
+    baseProductName: 'AX162-S',
   },
   {
     name: 'AX162-S-768GB',
@@ -86,6 +94,32 @@ const HETZNER_PRODUCTS = [
     storageTotalTB: 3.84,
     networkGbps: 1,
     priceUsd: 515, // Estimated with RAM upgrade
+    isConfigured: true,
+    baseProductName: 'AX162-S',
+  },
+  {
+    name: 'AX162-S-1024GB',
+    cpu: 'AMD EPYC 9454P (48c/96t @ 2.75-3.8GHz)',
+    cpuCores: 48,
+    ram: 1024,
+    storageDescription: '2x 3.84TB NVMe SSD Gen4 RAID1',
+    storageTotalTB: 3.84,
+    networkGbps: 1,
+    priceUsd: 635,
+    isConfigured: true,
+    baseProductName: 'AX162-S',
+  },
+  {
+    name: 'AX162-S-1152GB',
+    cpu: 'AMD EPYC 9454P (48c/96t @ 2.75-3.8GHz)',
+    cpuCores: 48,
+    ram: 1152,
+    storageDescription: '2x 3.84TB NVMe SSD Gen4 RAID1',
+    storageTotalTB: 3.84,
+    networkGbps: 1,
+    priceUsd: 695,
+    isConfigured: true,
+    baseProductName: 'AX162-S',
   },
   {
     name: 'AX162-R',
@@ -96,6 +130,7 @@ const HETZNER_PRODUCTS = [
     storageTotalTB: 1.92,
     networkGbps: 1,
     priceUsd: 215, // €199 converted
+    isConfigured: false,
   },
   {
     name: 'AX162-R-512GB',
@@ -106,6 +141,8 @@ const HETZNER_PRODUCTS = [
     storageTotalTB: 1.92,
     networkGbps: 1,
     priceUsd: 335, // Estimated with RAM upgrade
+    isConfigured: true,
+    baseProductName: 'AX162-R',
   },
   {
     name: 'AX162-R-768GB',
@@ -116,6 +153,32 @@ const HETZNER_PRODUCTS = [
     storageTotalTB: 1.92,
     networkGbps: 1,
     priceUsd: 455, // Estimated with RAM upgrade
+    isConfigured: true,
+    baseProductName: 'AX162-R',
+  },
+  {
+    name: 'AX162-R-1024GB',
+    cpu: 'AMD EPYC 9454P (48c/96t @ 2.75-3.8GHz)',
+    cpuCores: 48,
+    ram: 1024,
+    storageDescription: '2x 1.92TB NVMe SSD Gen4 RAID1',
+    storageTotalTB: 1.92,
+    networkGbps: 1,
+    priceUsd: 575,
+    isConfigured: true,
+    baseProductName: 'AX162-R',
+  },
+  {
+    name: 'AX162-R-1152GB',
+    cpu: 'AMD EPYC 9454P (48c/96t @ 2.75-3.8GHz)',
+    cpuCores: 48,
+    ram: 1152,
+    storageDescription: '2x 1.92TB NVMe SSD Gen4 RAID1',
+    storageTotalTB: 1.92,
+    networkGbps: 1,
+    priceUsd: 635,
+    isConfigured: true,
+    baseProductName: 'AX162-R',
   },
 ]
 
@@ -159,6 +222,8 @@ async function main() {
           storageTotalTB: product.storageTotalTB,
           networkGbps: product.networkGbps,
           priceUsd: product.priceUsd,
+          isConfigured: product.isConfigured || false,
+          baseProductName: product.baseProductName || null,
           cityId: city.id,
           sourceUrl: 'https://www.hetzner.com/dedicated-rootserver/ax162-s/',
           inStock: true,
