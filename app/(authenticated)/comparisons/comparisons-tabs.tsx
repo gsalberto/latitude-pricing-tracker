@@ -126,6 +126,7 @@ export function ComparisonTabs({ comparisons: rawComparisons, latitudeProducts, 
   const [selectedCompetitors, setSelectedCompetitors] = useState<Record<string, string>>({})
   const [selectedSkus, setSelectedSkus] = useState<Record<string, string>>({})
   const [sortDirection, setSortDirection] = useState<Record<string, SortDirection>>({})
+  const [stockFilter, setStockFilter] = useState<'in-stock' | 'out-of-stock' | 'all'>('all')
 
   // Toggle sort direction
   const toggleSort = (key: string) => {
@@ -256,6 +257,12 @@ export function ComparisonTabs({ comparisons: rawComparisons, latitudeProducts, 
       filtered = filtered.filter(c => matchesLocationFilter(c.competitorProduct.city, selectedLocation))
     }
 
+    if (stockFilter === 'in-stock') {
+      filtered = filtered.filter(c => c.competitorProduct.inStock)
+    } else if (stockFilter === 'out-of-stock') {
+      filtered = filtered.filter(c => !c.competitorProduct.inStock)
+    }
+
     return sortComparisons(filtered, productId)
   }
 
@@ -275,6 +282,12 @@ export function ComparisonTabs({ comparisons: rawComparisons, latitudeProducts, 
       filtered = filtered.filter(c => matchesLocationFilter(c.competitorProduct.city, selectedLocation))
     }
 
+    if (stockFilter === 'in-stock') {
+      filtered = filtered.filter(c => c.competitorProduct.inStock)
+    } else if (stockFilter === 'out-of-stock') {
+      filtered = filtered.filter(c => !c.competitorProduct.inStock)
+    }
+
     return sortComparisons(filtered, competitor)
   }
 
@@ -287,14 +300,20 @@ export function ComparisonTabs({ comparisons: rawComparisons, latitudeProducts, 
   // Flat list sorting for position filter view
   const [flatListSort, setFlatListSort] = useState<SortDirection>('desc')
   const sortedFlatComparisons = useMemo(() => {
-    if (!flatListSort) return comparisons
-    return [...comparisons].sort((a, b) => {
+    let filtered = comparisons
+    if (stockFilter === 'in-stock') {
+      filtered = filtered.filter(c => c.competitorProduct.inStock)
+    } else if (stockFilter === 'out-of-stock') {
+      filtered = filtered.filter(c => !c.competitorProduct.inStock)
+    }
+    if (!flatListSort) return filtered
+    return [...filtered].sort((a, b) => {
       if (flatListSort === 'desc') {
         return b.priceDifferencePercent - a.priceDifferencePercent
       }
       return a.priceDifferencePercent - b.priceDifferencePercent
     })
-  }, [comparisons, flatListSort])
+  }, [comparisons, flatListSort, stockFilter])
 
   // If position filter is active, show flat list view
   if (initialPosition && positionLabels[initialPosition]) {
@@ -312,8 +331,18 @@ export function ComparisonTabs({ comparisons: rawComparisons, latitudeProducts, 
               Clear filter
             </Button>
           </Link>
+          <Select value={stockFilter} onValueChange={(v) => setStockFilter(v as 'in-stock' | 'out-of-stock' | 'all')}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Stock status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Products</SelectItem>
+              <SelectItem value="in-stock">In Stock Only</SelectItem>
+              <SelectItem value="out-of-stock">Out of Stock Only</SelectItem>
+            </SelectContent>
+          </Select>
           <span className="text-sm text-muted-foreground">
-            ({comparisons.length} of {rawComparisons.length} comparisons)
+            ({sortedFlatComparisons.length} of {rawComparisons.length} comparisons)
           </span>
         </div>
 
@@ -452,6 +481,16 @@ export function ComparisonTabs({ comparisons: rawComparisons, latitudeProducts, 
             By Competitor
           </Button>
         </div>
+        <Select value={stockFilter} onValueChange={(v) => setStockFilter(v as 'in-stock' | 'out-of-stock' | 'all')}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="Stock status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Products</SelectItem>
+            <SelectItem value="in-stock">In Stock Only</SelectItem>
+            <SelectItem value="out-of-stock">Out of Stock Only</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {viewMode === 'by-sku' ? (
