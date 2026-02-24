@@ -86,6 +86,14 @@ const LOCATION_TO_COUNTRY: Record<string, string> = {
   'Zurich': 'Switzerland',
 }
 
+// Configurable RAM tiers for high-memory EPYC systems
+// Based on DataPacket configurator research
+const RAM_UPGRADE_TIERS: Record<string, { sizes: number[]; pricePerGB: number }> = {
+  'EPYC 9555': { sizes: [384, 768, 1024, 1536], pricePerGB: 2.5 },
+  'EPYC 9554': { sizes: [256, 512, 768, 1024, 1536], pricePerGB: 2.5 },
+  'EPYC 9554P': { sizes: [256, 512, 768, 1024, 1536], pricePerGB: 2.5 },
+}
+
 // Check if CPU is modern EPYC (9xxx Genoa/Turin or 4xxx Raphael/Bergamo)
 function isModernEpyc(cpuName: string): boolean {
   const lower = cpuName.toLowerCase()
@@ -223,6 +231,8 @@ async function main() {
       inStock: config.stockCount > 0,
       quantity: config.stockCount,
       cityId: city.id,
+      isConfigured: false,
+      baseProductName: null as string | null,
     }
 
     try {
@@ -256,7 +266,88 @@ async function main() {
     }
   }
 
-  console.log(`\nTotal: Created ${created}, Updated ${updated} DataPacket products`)
+  // Second pass: Generate RAM upgrade variants for eligible configs
+  console.log('\nGenerating configurable RAM upgrade variants...')
+  let configuredCreated = 0
+  let configuredUpdated = 0
+
+  for (const config of modernEpycConfigs) {
+    const cpu = config.cpus[0]
+    if (!cpu) continue
+
+    const tier = RAM_UPGRADE_TIERS[cpu.name]
+    if (!tier) continue
+
+    const locationName = config.location.name
+    const country = LOCATION_TO_COUNTRY[locationName]
+    if (!country) continue
+
+    const cityCode = `datapacket-${config.location.short.toLowerCase()}`
+    const city = await prisma.city.findUnique({ where: { code: cityCode } })
+    if (!city) continue
+
+    const baseMemory = config.memory
+    const basePrice = parseFloat(config.monthlyHwPrice.amount)
+    const storage = formatStorageDescription(config.storage)
+    const networkGbps = getNetworkGbps(config.uplink.ports)
+    const baseProductName = `${cpu.name}-${baseMemory}GB-${config.configurationId}`
+
+    for (const ramSize of tier.sizes) {
+      if (ramSize <= baseMemory) continue
+
+      const priceDelta = (ramSize - baseMemory) * tier.pricePerGB
+      const variantName = `${cpu.name}-${ramSize}GB-${config.configurationId}-configured`
+      const variantPrice = basePrice + priceDelta
+
+      const variantData = {
+        competitor: Competitor.DATAPACKET,
+        name: variantName,
+        cpu: `AMD ${cpu.name} (${cpu.cores}c/${cpu.threads}t)`,
+        cpuCores: cpu.cores,
+        ram: ramSize,
+        storageDescription: storage.description,
+        storageTotalTB: storage.totalTB,
+        networkGbps: networkGbps,
+        priceUsd: variantPrice,
+        sourceUrl: 'https://www.datapacket.com/pricing',
+        inStock: false,
+        quantity: 0,
+        cityId: city.id,
+        isConfigured: true,
+        baseProductName: baseProductName,
+      }
+
+      try {
+        const existing = await prisma.competitorProduct.findUnique({
+          where: {
+            competitor_name_cityId: {
+              competitor: Competitor.DATAPACKET,
+              name: variantName,
+              cityId: city.id,
+            },
+          },
+        })
+
+        if (existing) {
+          await prisma.competitorProduct.update({
+            where: { id: existing.id },
+            data: variantData,
+          })
+          configuredUpdated++
+        } else {
+          await prisma.competitorProduct.create({ data: variantData })
+          configuredCreated++
+        }
+
+        console.log(`  + ${cpu.name} ${ramSize}GB (configured) in ${locationName}: $${variantPrice.toFixed(2)}/mo`)
+      } catch (error) {
+        console.error(`  Failed to save configured variant ${variantName}:`, error)
+      }
+    }
+  }
+
+  console.log(`\nConfigured variants: Created ${configuredCreated}, Updated ${configuredUpdated}`)
+  console.log(`\nTotal: Created ${created + configuredCreated}, Updated ${updated + configuredUpdated} DataPacket products`)
   console.log('\nProducts by city:')
   Object.entries(productsByCity)
     .sort((a, b) => b[1] - a[1])
