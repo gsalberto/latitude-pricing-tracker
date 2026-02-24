@@ -49,6 +49,8 @@ interface CompetitorProduct {
   quantity: number | null
   city: City
   sourceUrl: string
+  isConfigured?: boolean
+  baseProductName?: string | null
 }
 
 interface Comparison {
@@ -402,15 +404,25 @@ export function ComparisonTabs({ comparisons: rawComparisons, latitudeProducts, 
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <ProductTooltip
-                        name={comparison.competitorProduct.name}
-                        cpu={comparison.competitorProduct.cpu}
-                        cpuCores={comparison.competitorProduct.cpuCores}
-                        ram={comparison.competitorProduct.ram}
-                        storageDescription={comparison.competitorProduct.storageDescription}
-                        networkGbps={comparison.competitorProduct.networkGbps}
-                        sourceUrl={comparison.competitorProduct.sourceUrl}
-                      />
+                      <div className="flex items-center gap-1.5">
+                        <ProductTooltip
+                          name={comparison.competitorProduct.name}
+                          cpu={comparison.competitorProduct.cpu}
+                          cpuCores={comparison.competitorProduct.cpuCores}
+                          ram={comparison.competitorProduct.ram}
+                          storageDescription={comparison.competitorProduct.storageDescription}
+                          networkGbps={comparison.competitorProduct.networkGbps}
+                          sourceUrl={comparison.competitorProduct.sourceUrl}
+                        />
+                        {comparison.competitorProduct.isConfigured && (
+                          <span
+                            className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 border border-orange-500/30 whitespace-nowrap"
+                            title={`Configured from base SKU: ${comparison.competitorProduct.baseProductName}`}
+                          >
+                            Configured
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>{formatPrice(comparison.competitorProduct.priceUsd)}/mo</TableCell>
                     <TableCell>
@@ -631,15 +643,25 @@ export function ComparisonTabs({ comparisons: rawComparisons, latitudeProducts, 
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <ProductTooltip
-                          name={comparison.competitorProduct.name}
-                          cpu={comparison.competitorProduct.cpu}
-                          cpuCores={comparison.competitorProduct.cpuCores}
-                          ram={comparison.competitorProduct.ram}
-                          storageDescription={comparison.competitorProduct.storageDescription}
-                          networkGbps={comparison.competitorProduct.networkGbps}
-                          sourceUrl={comparison.competitorProduct.sourceUrl}
-                        />
+                        <div className="flex items-center gap-1.5">
+                          <ProductTooltip
+                            name={comparison.competitorProduct.name}
+                            cpu={comparison.competitorProduct.cpu}
+                            cpuCores={comparison.competitorProduct.cpuCores}
+                            ram={comparison.competitorProduct.ram}
+                            storageDescription={comparison.competitorProduct.storageDescription}
+                            networkGbps={comparison.competitorProduct.networkGbps}
+                            sourceUrl={comparison.competitorProduct.sourceUrl}
+                          />
+                          {comparison.competitorProduct.isConfigured && (
+                            <span
+                              className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 border border-orange-500/30 whitespace-nowrap"
+                              title={`Configured from base SKU: ${comparison.competitorProduct.baseProductName}`}
+                            >
+                              Configured
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>{formatPrice(comparison.competitorProduct.priceUsd)}/mo</TableCell>
                       <TableCell>
@@ -838,15 +860,25 @@ export function ComparisonTabs({ comparisons: rawComparisons, latitudeProducts, 
                             </span>
                           </TableCell>
                           <TableCell>
-                            <ProductTooltip
-                              name={comparison.competitorProduct.name}
-                              cpu={comparison.competitorProduct.cpu}
-                              cpuCores={comparison.competitorProduct.cpuCores}
-                              ram={comparison.competitorProduct.ram}
-                              storageDescription={comparison.competitorProduct.storageDescription}
-                              networkGbps={comparison.competitorProduct.networkGbps}
-                              sourceUrl={comparison.competitorProduct.sourceUrl}
-                            />
+                            <div className="flex items-center gap-1.5">
+                              <ProductTooltip
+                                name={comparison.competitorProduct.name}
+                                cpu={comparison.competitorProduct.cpu}
+                                cpuCores={comparison.competitorProduct.cpuCores}
+                                ram={comparison.competitorProduct.ram}
+                                storageDescription={comparison.competitorProduct.storageDescription}
+                                networkGbps={comparison.competitorProduct.networkGbps}
+                                sourceUrl={comparison.competitorProduct.sourceUrl}
+                              />
+                              {comparison.competitorProduct.isConfigured && (
+                                <span
+                                  className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 border border-orange-500/30 whitespace-nowrap"
+                                  title={`Configured from base SKU: ${comparison.competitorProduct.baseProductName}`}
+                                >
+                                  Configured
+                                </span>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>{formatPrice(comparison.competitorProduct.priceUsd)}/mo</TableCell>
                           <TableCell>
