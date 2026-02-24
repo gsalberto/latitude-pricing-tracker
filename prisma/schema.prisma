@@ -66,6 +66,8 @@ model CompetitorProduct {
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
   quantity           Int?
+  isConfigured       Boolean      @default(false)
+  baseProductName    String?
   comparisons        Comparison[]
   city               City         @relation(fields: [cityId], references: [id])
 
