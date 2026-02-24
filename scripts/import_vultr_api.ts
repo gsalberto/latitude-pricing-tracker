@@ -122,7 +122,7 @@ async function main() {
     const totalStorageGB = plan.disk * plan.disk_count
     const totalStorageTB = totalStorageGB / 1000
     const cpuDescription = `AMD ${plan.cpu_model} (${plan.cpu_cores}c/${plan.cpu_threads}t @ ${(plan.cpu_mhz / 1000).toFixed(1)}GHz)`
-    const productName = `Vultr-${plan.cpu_model.replace(/\s+/g, '-')}-${ramGB}GB`
+    const productName = `Vultr-${plan.id}`
 
     console.log(`Processing ${plan.id}: ${cpuDescription}`)
     console.log(`  RAM: ${ramGB}GB, Storage: ${plan.disk_count}x ${plan.disk}GB ${plan.type}, Price: $${plan.monthly_cost}/mo`)
