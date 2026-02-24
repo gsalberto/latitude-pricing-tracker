@@ -118,19 +118,64 @@ async function main() {
   }> = []
 
   for (const plan of modernPlans) {
-    if (plan.locations.length === 0) {
-      console.log(`  Skipping ${plan.id} - no available locations`)
-      continue
-    }
-
     const ramGB = Math.round(plan.ram / 1024)
     const totalStorageGB = plan.disk * plan.disk_count
     const totalStorageTB = totalStorageGB / 1000
     const cpuDescription = `AMD ${plan.cpu_model} (${plan.cpu_cores}c/${plan.cpu_threads}t @ ${(plan.cpu_mhz / 1000).toFixed(1)}GHz)`
+    const productName = `Vultr-${plan.cpu_model.replace(/\s+/g, '-')}-${ramGB}GB`
 
     console.log(`Processing ${plan.id}: ${cpuDescription}`)
     console.log(`  RAM: ${ramGB}GB, Storage: ${plan.disk_count}x ${plan.disk}GB ${plan.type}, Price: $${plan.monthly_cost}/mo`)
     console.log(`  Locations: ${plan.locations.length}`)
+
+    if (plan.locations.length === 0) {
+      console.log(`  No locations — importing as out-of-stock global product`)
+
+      // Get or create the generic "Vultr Global" city
+      const globalCityCode = 'vultr-global'
+      let globalCity = await prisma.city.findUnique({ where: { code: globalCityCode } })
+      if (!globalCity) {
+        globalCity = await prisma.city.create({
+          data: {
+            code: globalCityCode,
+            name: 'Global',
+            country: 'USA',
+          }
+        })
+      }
+
+      await prisma.competitorProduct.create({
+        data: {
+          competitor: 'VULTR',
+          name: productName,
+          cpu: cpuDescription,
+          cpuCores: plan.cpu_cores,
+          ram: ramGB,
+          storageDescription: `${plan.disk_count}x ${plan.disk}GB ${plan.type}`,
+          storageTotalTB: totalStorageTB,
+          networkGbps: 10,
+          priceUsd: plan.monthly_cost,
+          cityId: globalCity.id,
+          sourceUrl: 'https://www.vultr.com/products/bare-metal/',
+          inStock: false,
+          isConfigured: false,
+          lastInventoryCheck: new Date(),
+          lastVerified: new Date(),
+        }
+      })
+
+      createdProducts.push({
+        name: productName,
+        cpu: plan.cpu_model,
+        cores: plan.cpu_cores,
+        ram: ramGB,
+        price: plan.monthly_cost,
+        city: 'Global',
+        country: 'USA',
+      })
+      totalCreated++
+      continue
+    }
 
     for (const locationId of plan.locations) {
       const region = regions.get(locationId)
@@ -154,9 +199,6 @@ async function main() {
         })
       }
 
-      // Create product
-      const productName = `Vultr-${plan.cpu_model.replace(/\s+/g, '-')}-${ramGB}GB`
-
       await prisma.competitorProduct.create({
         data: {
           competitor: 'VULTR',
@@ -171,6 +213,7 @@ async function main() {
           cityId: city.id,
           sourceUrl: 'https://www.vultr.com/products/bare-metal/',
           inStock: plan.deploy_ondemand,
+          isConfigured: false,
           lastInventoryCheck: new Date(),
           lastVerified: new Date(),
         }
