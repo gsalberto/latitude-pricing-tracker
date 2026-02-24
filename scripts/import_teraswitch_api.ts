@@ -139,7 +139,7 @@ async function main() {
     console.log(`Fetching availability for ${cityConfig.name}...`)
 
     // Collect products from all regions in this city
-    const allProducts: Map<string, { item: AvailabilityItem; cores: number; storage: { description: string; totalTB: number }; totalPrice: number }> = new Map()
+    const allProducts: Map<string, { item: AvailabilityItem; cores: number; storage: { description: string; totalTB: number }; totalPrice: number; isDefaultRam: boolean }> = new Map()
 
     for (const regionCode of cityConfig.regions) {
       const availability = await fetchAvailability(regionCode)
@@ -151,11 +151,12 @@ async function main() {
         const ramOption = item.tier.memoryOptions.find(m => m.gb === item.memoryGb)
         const ramAddon = ramOption?.monthlyPrice || 0
         const totalPrice = Math.round(item.tier.monthlyPrice + ramAddon)
+        const isDefaultRam = item.tier.memoryOptions.find(m => m.default)?.gb === item.memoryGb
         const productName = `TS-${item.tier.cpu.replace(/AMD EPYC /, '').replace(/ /g, '-')}-${item.memoryGb}GB`
 
         // Only keep one instance per product name (consolidate across regions)
         if (!allProducts.has(productName)) {
-          allProducts.set(productName, { item, cores, storage, totalPrice })
+          allProducts.set(productName, { item, cores, storage, totalPrice, isDefaultRam })
         }
       }
 
@@ -200,6 +201,8 @@ async function main() {
           sourceUrl: 'https://teraswitch.com/bare-metal/',
           inStock: data.item.quantity > 0,
           quantity: data.item.quantity,
+          isConfigured: !data.isDefaultRam,
+          baseProductName: data.isDefaultRam ? null : `TS-${data.item.tier.cpu.replace(/AMD EPYC /, '').replace(/ /g, '-')}`,
           lastVerified: new Date(),
         }
       })
