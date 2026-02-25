@@ -93,7 +93,7 @@ const latitudeMatchCriteria: Record<string, MatchCriteria> = {
   'f4.metal.medium': { minCores: 12, maxCores: 20, minRam: 144, maxRam: 240 },
   'f4.metal.large': { minCores: 20, maxCores: 30, minRam: 576, maxRam: 960 },
   'rs4.metal.large': { minCores: 26, maxCores: 40, minRam: 576, maxRam: 960 },
-  'rs4.metal.xlarge': { minCores: 52, maxCores: 80, minRam: 1152, maxRam: 1920 },
+  'rs4.metal.xlarge': { minCores: 48, maxCores: 80, minRam: 1152, maxRam: 1920 },
 }
 
 // Get regional price for a Latitude product based on competitor's country

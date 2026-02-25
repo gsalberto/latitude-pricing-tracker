@@ -1,5 +1,6 @@
 import { PrismaClient, Competitor } from '@prisma/client'
 import { Resend } from 'resend'
+import { execSync } from 'child_process'
 
 const prisma = new PrismaClient()
 
@@ -119,7 +120,7 @@ const latitudeMatchCriteria: Record<string, MatchCriteria> = {
   'f4.metal.medium': { minCores: 12, maxCores: 20, minRam: 144, maxRam: 240 },
   'f4.metal.large': { minCores: 20, maxCores: 30, minRam: 576, maxRam: 960 },
   'rs4.metal.large': { minCores: 26, maxCores: 40, minRam: 576, maxRam: 960 },
-  'rs4.metal.xlarge': { minCores: 52, maxCores: 80, minRam: 1152, maxRam: 1920 },
+  'rs4.metal.xlarge': { minCores: 48, maxCores: 80, minRam: 1152, maxRam: 1920 },
 }
 
 interface MemoryOption {
@@ -520,6 +521,21 @@ async function sendPriceAlertEmail(priceChanges: PriceChange[]) {
   }
 }
 
+function runImportScript(scriptName: string, label: string): void {
+  console.log(`\n--- Running ${label} import ---`)
+  try {
+    execSync(`npx tsx scripts/${scriptName}`, {
+      cwd: process.cwd(),
+      stdio: 'inherit',
+      timeout: 5 * 60 * 1000, // 5 minute timeout per script
+    })
+    console.log(`--- ${label} import completed ---`)
+  } catch (error) {
+    console.error(`--- ${label} import FAILED (continuing with other imports) ---`)
+    console.error(error instanceof Error ? error.message : error)
+  }
+}
+
 async function main() {
   const startTime = new Date()
   console.log(`\n========================================`)
@@ -531,7 +547,15 @@ async function main() {
     const previousPrices = await getPreviousPrices()
     console.log(`Captured ${previousPrices.size} previous prices for comparison`)
 
-    // Update Teraswitch from API
+    // Run all competitor imports
+    runImportScript('import_vultr_api.ts', 'Vultr')
+    runImportScript('import_cherry_api.ts', 'Cherry Servers')
+    runImportScript('import_datapacket_api.ts', 'DataPacket')
+    runImportScript('import_ovh_api.ts', 'OVH')
+    runImportScript('import_hetzner.ts', 'Hetzner')
+    runImportScript('import_latitude_api.ts', 'Latitude')
+
+    // Update Teraswitch from API (inline)
     const teraswitchProducts = await updateTeraswitch()
 
     // Detect price changes > 10%
