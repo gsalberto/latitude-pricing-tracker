@@ -54,6 +54,16 @@ const COUNTRY_NAMES: Record<string, string> = {
   'CL': 'Chile',
 }
 
+// Fallback cities for out-of-stock plans so they appear in Latitude city comparisons
+const FALLBACK_US_CITIES = [
+  { code: 'vultr-fallback-ash', name: 'Ashburn', country: 'USA' },
+  { code: 'vultr-fallback-chi', name: 'Chicago', country: 'USA' },
+  { code: 'vultr-fallback-dal', name: 'Dallas', country: 'USA' },
+  { code: 'vultr-fallback-lax', name: 'Los Angeles', country: 'USA' },
+  { code: 'vultr-fallback-mia', name: 'Miami', country: 'USA' },
+  { code: 'vultr-fallback-nyc', name: 'New York', country: 'USA' },
+]
+
 function isModernEpyc(cpuModel: string): boolean {
   // EPYC 9xxx (Genoa/Turin) or EPYC 7xxx 3rd gen (Milan)
   if (/EPYC\s*9\d{3}/.test(cpuModel)) return true
@@ -128,73 +138,46 @@ async function main() {
     console.log(`  RAM: ${ramGB}GB, Storage: ${plan.disk_count}x ${plan.disk}GB ${plan.type}, Price: $${plan.monthly_cost}/mo`)
     console.log(`  Locations: ${plan.locations.length}`)
 
-    if (plan.locations.length === 0) {
-      console.log(`  No locations — importing as out-of-stock global product`)
+    // Determine locations to create products for
+    const locationEntries: Array<{ cityCode: string; cityName: string; country: string; inStock: boolean }> = []
 
-      // Get or create the generic "Vultr Global" city
-      const globalCityCode = 'vultr-global'
-      let globalCity = await prisma.city.findUnique({ where: { code: globalCityCode } })
-      if (!globalCity) {
-        globalCity = await prisma.city.create({
-          data: {
-            code: globalCityCode,
-            name: 'Global',
-            country: 'USA',
-          }
+    if (plan.locations.length === 0) {
+      // Out-of-stock plan: map to all major Latitude US cities for comparison matching
+      console.log(`  Out of stock — mapping to ${FALLBACK_US_CITIES.length} Latitude US cities`)
+      for (const fallback of FALLBACK_US_CITIES) {
+        locationEntries.push({
+          cityCode: fallback.code,
+          cityName: fallback.name,
+          country: fallback.country,
+          inStock: false,
         })
       }
-
-      await prisma.competitorProduct.create({
-        data: {
-          competitor: 'VULTR',
-          name: productName,
-          cpu: cpuDescription,
-          cpuCores: plan.cpu_cores,
-          ram: ramGB,
-          storageDescription: `${plan.disk_count}x ${plan.disk}GB ${plan.type}`,
-          storageTotalTB: totalStorageTB,
-          networkGbps: 10,
-          priceUsd: plan.monthly_cost,
-          cityId: globalCity.id,
-          sourceUrl: 'https://www.vultr.com/products/bare-metal/',
-          inStock: false,
-          isConfigured: false,
-          lastInventoryCheck: new Date(),
-          lastVerified: new Date(),
+    } else {
+      for (const locationId of plan.locations) {
+        const region = regions.get(locationId)
+        if (!region) {
+          console.log(`    Skipping unknown region: ${locationId}`)
+          continue
         }
-      })
-
-      createdProducts.push({
-        name: productName,
-        cpu: plan.cpu_model,
-        cores: plan.cpu_cores,
-        ram: ramGB,
-        price: plan.monthly_cost,
-        city: 'Global',
-        country: 'USA',
-      })
-      totalCreated++
-      continue
+        const countryName = COUNTRY_NAMES[region.country] || region.country
+        locationEntries.push({
+          cityCode: `vultr-${locationId}`,
+          cityName: region.city,
+          country: countryName,
+          inStock: plan.deploy_ondemand,
+        })
+      }
     }
 
-    for (const locationId of plan.locations) {
-      const region = regions.get(locationId)
-      if (!region) {
-        console.log(`    Skipping unknown region: ${locationId}`)
-        continue
-      }
-
-      const countryName = COUNTRY_NAMES[region.country] || region.country
-      const cityCode = `vultr-${locationId}`
-
+    for (const loc of locationEntries) {
       // Get or create city
-      let city = await prisma.city.findUnique({ where: { code: cityCode } })
+      let city = await prisma.city.findUnique({ where: { code: loc.cityCode } })
       if (!city) {
         city = await prisma.city.create({
           data: {
-            code: cityCode,
-            name: region.city,
-            country: countryName,
+            code: loc.cityCode,
+            name: loc.cityName,
+            country: loc.country,
           }
         })
       }
@@ -212,7 +195,7 @@ async function main() {
           priceUsd: plan.monthly_cost,
           cityId: city.id,
           sourceUrl: 'https://www.vultr.com/products/bare-metal/',
-          inStock: plan.deploy_ondemand,
+          inStock: loc.inStock,
           isConfigured: false,
           lastInventoryCheck: new Date(),
           lastVerified: new Date(),
@@ -225,8 +208,8 @@ async function main() {
         cores: plan.cpu_cores,
         ram: ramGB,
         price: plan.monthly_cost,
-        city: region.city,
-        country: countryName,
+        city: loc.cityName,
+        country: loc.country,
       })
       totalCreated++
     }
