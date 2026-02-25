@@ -61,6 +61,9 @@ const HETZNER_PRODUCTS = [
     priceUsd: 215, // €199 converted
     isConfigured: false,
   },
+  // RAM pricing derived from user-confirmed configurator data:
+  // AX162-S base: €199/mo with 128GB → 1152GB config: €2,479/mo
+  // RAM addon rate: €2.2266/GB/mo, EUR→USD at 1.08
   {
     name: 'AX162-S-256GB',
     cpu: 'AMD EPYC 9454P (48c/96t @ 2.75-3.8GHz)',
@@ -69,7 +72,7 @@ const HETZNER_PRODUCTS = [
     storageDescription: '2x 3.84TB NVMe SSD Gen4 RAID1',
     storageTotalTB: 3.84,
     networkGbps: 1,
-    priceUsd: 275, // Estimated with RAM upgrade
+    priceUsd: 523, // €484/mo (base €199 + 128GB × €2.23/GB)
     isConfigured: true,
     baseProductName: 'AX162-S',
   },
@@ -81,7 +84,7 @@ const HETZNER_PRODUCTS = [
     storageDescription: '2x 3.84TB NVMe SSD Gen4 RAID1',
     storageTotalTB: 3.84,
     networkGbps: 1,
-    priceUsd: 395, // Estimated with RAM upgrade
+    priceUsd: 1138, // €1,054/mo (base €199 + 384GB × €2.23/GB)
     isConfigured: true,
     baseProductName: 'AX162-S',
   },
@@ -93,7 +96,7 @@ const HETZNER_PRODUCTS = [
     storageDescription: '2x 3.84TB NVMe SSD Gen4 RAID1',
     storageTotalTB: 3.84,
     networkGbps: 1,
-    priceUsd: 515, // Estimated with RAM upgrade
+    priceUsd: 1754, // €1,624/mo (base €199 + 640GB × €2.23/GB)
     isConfigured: true,
     baseProductName: 'AX162-S',
   },
@@ -105,7 +108,7 @@ const HETZNER_PRODUCTS = [
     storageDescription: '2x 3.84TB NVMe SSD Gen4 RAID1',
     storageTotalTB: 3.84,
     networkGbps: 1,
-    priceUsd: 635,
+    priceUsd: 2370, // €2,194/mo (base €199 + 896GB × €2.23/GB)
     isConfigured: true,
     baseProductName: 'AX162-S',
   },
@@ -117,7 +120,7 @@ const HETZNER_PRODUCTS = [
     storageDescription: '2x 3.84TB NVMe SSD Gen4 RAID1',
     storageTotalTB: 3.84,
     networkGbps: 1,
-    priceUsd: 695,
+    priceUsd: 2677, // €2,479/mo (base €199 + 1024GB × €2.23/GB) — user confirmed
     isConfigured: true,
     baseProductName: 'AX162-S',
   },
@@ -132,6 +135,7 @@ const HETZNER_PRODUCTS = [
     priceUsd: 215, // €199 converted
     isConfigured: false,
   },
+  // AX162-R RAM pricing: same €2.2266/GB/mo rate, base €199 with 256GB
   {
     name: 'AX162-R-512GB',
     cpu: 'AMD EPYC 9454P (48c/96t @ 2.75-3.8GHz)',
@@ -140,7 +144,7 @@ const HETZNER_PRODUCTS = [
     storageDescription: '2x 1.92TB NVMe SSD Gen4 RAID1',
     storageTotalTB: 1.92,
     networkGbps: 1,
-    priceUsd: 335, // Estimated with RAM upgrade
+    priceUsd: 831, // €769/mo (base €199 + 256GB × €2.23/GB)
     isConfigured: true,
     baseProductName: 'AX162-R',
   },
@@ -152,7 +156,7 @@ const HETZNER_PRODUCTS = [
     storageDescription: '2x 1.92TB NVMe SSD Gen4 RAID1',
     storageTotalTB: 1.92,
     networkGbps: 1,
-    priceUsd: 455, // Estimated with RAM upgrade
+    priceUsd: 1446, // €1,339/mo (base €199 + 512GB × €2.23/GB)
     isConfigured: true,
     baseProductName: 'AX162-R',
   },
@@ -164,7 +168,7 @@ const HETZNER_PRODUCTS = [
     storageDescription: '2x 1.92TB NVMe SSD Gen4 RAID1',
     storageTotalTB: 1.92,
     networkGbps: 1,
-    priceUsd: 575,
+    priceUsd: 2062, // €1,909/mo (base €199 + 768GB × €2.23/GB)
     isConfigured: true,
     baseProductName: 'AX162-R',
   },
@@ -176,7 +180,7 @@ const HETZNER_PRODUCTS = [
     storageDescription: '2x 1.92TB NVMe SSD Gen4 RAID1',
     storageTotalTB: 1.92,
     networkGbps: 1,
-    priceUsd: 635,
+    priceUsd: 2370, // €2,194/mo (base €199 + 896GB × €2.23/GB)
     isConfigured: true,
     baseProductName: 'AX162-R',
   },
