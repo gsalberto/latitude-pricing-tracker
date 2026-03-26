@@ -1,6 +1,8 @@
 import { Navigation } from "@/components/layout/navigation"
 import { prisma } from "@/lib/prisma"
 
+export const dynamic = 'force-dynamic'
+
 async function getLastUpdated() {
   const lastUpdatedProduct = await prisma.competitorProduct.findFirst({
     orderBy: { updatedAt: 'desc' },
