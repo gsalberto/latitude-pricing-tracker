@@ -430,10 +430,28 @@ async function main() {
     // Get the default memory addon's price from catalog (used to compute price deltas)
     const defaultAddonPriceCAD = defaultMemoryAddon ? getAddonMonthlyPriceCAD(catalogAddons, defaultMemoryAddon) : 0
 
-    // Get storage options
+    // Get storage options — pick the cheapest NVMe addon for fair comparison
+    // (Latitude includes NVMe storage in their price, OVH charges separately)
     const storageFamily = basePlan.addonFamilies.find((f: { name: string }) => f.name === 'storage')
-    const defaultStorage = storageFamily?.default || storageFamily?.addons?.[0] || ''
-    const storage = parseStorageFromAddon(defaultStorage)
+    const storageAddons = storageFamily?.addons || []
+    const defaultStorageAddon = storageFamily?.default || ''
+
+    // Find the cheapest NVMe storage addon (skip noraid-0 which is $0/no storage)
+    let bestStorageAddon = ''
+    let storagePriceCAD = 0
+    for (const addonCode of storageAddons) {
+      if (addonCode.includes('noraid-0')) continue // skip "no storage" option
+      if (!addonCode.includes('nvme')) continue // only NVMe options
+      const price = getAddonMonthlyPriceCAD(catalogAddons, addonCode)
+      if (price > 0 && (bestStorageAddon === '' || price < storagePriceCAD)) {
+        bestStorageAddon = addonCode
+        storagePriceCAD = price
+      }
+    }
+
+    const storagePriceUsd = Math.round(storagePriceCAD * CAD_TO_USD)
+    const storage = parseStorageFromAddon(bestStorageAddon || defaultStorageAddon)
+    console.log(`  Storage: ${bestStorageAddon || defaultStorageAddon} (+$${storagePriceUsd}/mo)`)
 
     // Build a map of regional prices (planCode suffix -> price in USD)
     // OVH has different prices for different regions: -sgp, -syd, -mum, etc.
@@ -521,7 +539,7 @@ async function main() {
         // Get regional price or fall back to default
         const regionKey = dcToRegion[dcCode] || 'default'
         const baseRegionalPrice = regionalPrices.get(regionKey) || regionalPrices.get('default') || defaultPrice
-        const priceUsd = baseRegionalPrice + ramPriceDeltaUsd
+        const priceUsd = baseRegionalPrice + ramPriceDeltaUsd + storagePriceUsd
 
         // Get or create city
         const cityCode = `ovh-${dcCode}`
